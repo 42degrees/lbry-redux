@@ -1,6 +1,8 @@
 import { normalizeURI } from 'lbryURI';
 import { makeSelectCurrentParam } from 'redux/selectors/navigation';
+import { selectSearchUrisByQuery } from 'redux/selectors/search';
 import { createSelector } from 'reselect';
+import { isClaimNsfw } from 'util/claim';
 
 const selectState = state => state.claims || {};
 
@@ -173,7 +175,7 @@ export const selectMyChannelClaims = createSelector(
 
     ids.forEach(id => {
       if (byId[id]) {
-        // I'm not sure why this check is necessary, but it ought to be a quick fix for https://github.com/lbryio/lbry-app/issues/544
+        // I'm not sure why this check is necessary, but it ought to be a quick fix for https://github.com/lbryio/lbry-desktop/issues/544
         claims.push(byId[id]);
       }
     });
@@ -220,7 +222,70 @@ export const makeSelectTotalPagesForChannel = uri =>
     byUri => byUri && byUri[uri] && Math.ceil(byUri[uri] / 10)
   );
 
-export const selectRewardContentClaimIds = createSelector(
-  selectState,
-  state => state.rewardedContentClaimIds
-);
+export const makeSelectNsfwCountFromUris = uris =>
+  createSelector(selectClaimsByUri, claims =>
+    uris.reduce((acc, uri) => {
+      const claim = claims[uri];
+      if (isClaimNsfw(claim)) {
+        return acc + 1;
+      }
+      return acc;
+    }, 0)
+  );
+
+export const makeSelectNsfwCountForChannel = uri => {
+  const pageSelector = makeSelectCurrentParam('page');
+
+  return createSelector(
+    selectClaimsById,
+    selectAllClaimsByChannel,
+    pageSelector,
+    (byId, allClaims, page) => {
+      const byChannel = allClaims[uri] || {};
+      const claimIds = byChannel[page || 1];
+
+      if (!claimIds) return 0;
+
+      return claimIds.reduce((acc, claimId) => {
+        const claim = byId[claimId];
+        if (isClaimNsfw(claim)) {
+          return acc + 1;
+        }
+        return acc;
+      }, 0);
+    }
+  );
+};
+
+export const makeSelectRecommendedContentForUri = uri =>
+  createSelector(
+    makeSelectClaimForUri(uri),
+    selectSearchUrisByQuery,
+    (claim, searchUrisByQuery) => {
+      const atVanityURI = !uri.includes('#');
+
+      let recommendedContent;
+      if (claim) {
+        const {
+          value: {
+            stream: {
+              metadata: { title },
+            },
+          },
+        } = claim;
+        let searchUris = searchUrisByQuery[title.replace(/\//, ' ')];
+        if (searchUris) {
+          // If we are at a vanity uri, we can't do a uri match
+          // The first search result _should_ be the same as the claim a user is on
+          if (atVanityURI) {
+            searchUris = searchUris.slice(1);
+          }
+
+          searchUris = searchUris.filter(searchUri => searchUri !== uri);
+          recommendedContent = searchUris;
+        }
+      }
+
+      return recommendedContent;
+    }
+  );

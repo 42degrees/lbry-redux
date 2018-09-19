@@ -61,6 +61,10 @@ const daemonCallWithResult = (name, params = {}) =>
     );
   });
 
+// blobs
+Lbry.blob_delete = (params = {}) => daemonCallWithResult('blob_delete', params);
+Lbry.blob_list = (params = {}) => daemonCallWithResult('blob_list', params);
+
 // core
 Lbry.status = (params = {}) => daemonCallWithResult('status', params);
 Lbry.version = () => daemonCallWithResult('version', {});
@@ -72,13 +76,15 @@ Lbry.claim_list_by_channel = (params = {}) => daemonCallWithResult('claim_list_b
 
 // wallet
 Lbry.wallet_balance = (params = {}) => daemonCallWithResult('wallet_balance', params);
+Lbry.wallet_decrypt = () => daemonCallWithResult('wallet_decrypt', {});
+Lbry.wallet_encrypt = (params = {}) => daemonCallWithResult('wallet_encrypt', params);
 Lbry.wallet_is_address_mine = (params = {}) =>
   daemonCallWithResult('wallet_is_address_mine', params);
+Lbry.wallet_lock = () => daemonCallWithResult('wallet_lock', {});
 Lbry.wallet_new_address = (params = {}) => daemonCallWithResult('wallet_new_address', params);
 Lbry.wallet_send = (params = {}) => daemonCallWithResult('wallet_send', params);
-Lbry.wallet_encrypt = (params = {}) => daemonCallWithResult('wallet_encrypt', params);
-Lbry.wallet_decrypt = () => daemonCallWithResult('wallet_decrypt', {});
 Lbry.wallet_unlock = (params = {}) => daemonCallWithResult('wallet_unlock', params);
+Lbry.wallet_unused_address = () => daemonCallWithResult('wallet_unused_address', {});
 
 // transactions
 Lbry.transaction_list = (params = {}) => daemonCallWithResult('transaction_list', params);
@@ -128,7 +134,7 @@ Lbry.getMediaType = (contentType, extname) => {
     return res === extname ? 'unknown' : res;
   } else if (contentType) {
     return /^[^/]+/.exec(contentType)[0];
-  } 
+  }
   return 'unknown';
 };
 

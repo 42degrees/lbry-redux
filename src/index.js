@@ -3,6 +3,7 @@ import * as MODALS from 'constants/modal_types';
 import * as THUMBNAIL_STATUSES from 'constants/thumbnail_upload_statuses';
 import * as SEARCH_TYPES from 'constants/search';
 import * as SETTINGS from 'constants/settings';
+import * as TRANSACTIONS from 'constants/transaction_types';
 import Lbry from 'lbry';
 import Lbryapi from 'lbryapi';
 import { selectState as selectSearchState } from 'redux/selectors/search';
@@ -11,7 +12,7 @@ import { selectState as selectSearchState } from 'redux/selectors/search';
 export { Notification } from 'types/Notification';
 
 // constants
-export { ACTIONS, MODALS, THUMBNAIL_STATUSES, SEARCH_TYPES, SETTINGS };
+export { ACTIONS, MODALS, THUMBNAIL_STATUSES, SEARCH_TYPES, SETTINGS, TRANSACTIONS };
 
 // common
 export { Lbry, Lbryapi };
@@ -39,7 +40,6 @@ export {
   doResolveUri,
   doFetchFeaturedUris,
   doFetchTrendingUris,
-  doFetchRewardedContent,
 } from 'redux/actions/claims';
 
 export { doFetchCostInfoForUri } from 'redux/actions/cost_info';
@@ -70,6 +70,10 @@ export {
   doSetDraftTransactionAmount,
   doSetDraftTransactionAddress,
   doSendSupport,
+  doWalletEncrypt,
+  doWalletDecrypt,
+  doWalletUnlock,
+  doWalletStatus,
 } from 'redux/actions/wallet';
 
 // utils
@@ -107,6 +111,9 @@ export {
   makeSelectIsUriResolving,
   makeSelectTotalItemsForChannel,
   makeSelectTotalPagesForChannel,
+  makeSelectNsfwCountFromUris,
+  makeSelectNsfwCountForChannel,
+  makeSelectRecommendedContentForUri,
   selectClaimsById,
   selectClaimsByUri,
   selectAllClaimsByChannel,
@@ -129,7 +136,6 @@ export {
   selectFetchingTrendingUris,
   selectPlayingUri,
   selectChannelClaimCounts,
-  selectRewardContentClaimIds,
 } from 'redux/selectors/claims';
 
 export {
@@ -169,7 +175,6 @@ export {
   selectHistoryIndex,
   selectHistoryStack,
   selectActiveHistoryEntry,
-  selectNavLinks,
 } from 'redux/selectors/navigation';
 
 export { selectSearchState };
@@ -181,6 +186,7 @@ export {
   selectSearchUrisByQuery,
   selectWunderBarAddress,
   selectSearchBarFocused,
+  selectSearchSuggestions,
 } from 'redux/selectors/search';
 
 export {
@@ -199,4 +205,15 @@ export {
   selectDraftTransactionAddress,
   selectDraftTransactionError,
   selectBlocks,
+  selectWalletIsEncrypted,
+  selectWalletState,
+  selectWalletEncryptPending,
+  selectWalletEncryptSucceeded,
+  selectWalletEncryptResult,
+  selectWalletDecryptPending,
+  selectWalletDecryptSucceeded,
+  selectWalletDecryptResult,
+  selectWalletUnlockPending,
+  selectWalletUnlockSucceeded,
+  selectWalletUnlockResult,
 } from 'redux/selectors/wallet';

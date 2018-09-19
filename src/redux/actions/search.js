@@ -1,22 +1,24 @@
 // @flow
 import * as ACTIONS from 'constants/action_types';
-import * as SEARCH_TYPES from 'constants/search';
-import { normalizeURI, buildURI, parseURI } from 'lbryURI';
+import { buildURI } from 'lbryURI';
 import { doResolveUri } from 'redux/actions/claims';
-import { makeSelectSearchUris } from 'redux/selectors/search';
+import { makeSelectSearchUris, selectSuggestions } from 'redux/selectors/search';
 import { batchActions } from 'util/batchActions';
 import handleFetchResponse from 'util/handle-fetch';
 
 const DEFAULTSEARCHRESULTSIZE = 10;
 const DEFAULTSEARCHRESULTFROM = 0;
+type Dispatch = (action: any) => any;
+type GetState = () => {};
 
 export const doSearch = (
   rawQuery,
   size = DEFAULTSEARCHRESULTSIZE,
-  from = DEFAULTSEARCHRESULTFROM
-) => (dispatch, getState) => {
+  from = DEFAULTSEARCHRESULTFROM,
+  isBackgroundSearch
+) => (dispatch: Dispatch, getState: GetState) => {
   const state = getState();
-  const query = rawQuery.replace(/^lbry:\/\//i, '');
+  const query = rawQuery.replace(/^lbry:\/\//i, '').replace(/\//, ' ');
 
   if (!query) {
     dispatch({
@@ -38,13 +40,16 @@ export const doSearch = (
   // If the user is on the file page with a pre-populated uri and they select
   // the search option without typing anything, searchQuery will be empty
   // We need to populate it so the input is filled on the search page
-  if (!state.search.searchQuery) {
+  // isBackgroundSearch means the search is happening in the background, don't update the search query
+  if (!state.search.searchQuery && !isBackgroundSearch) {
     dispatch({
       type: ACTIONS.UPDATE_SEARCH_QUERY,
       data: { searchQuery: query },
     });
   }
-  fetch(`https://lighthouse.lbry.io/search?s=${query}&size=${size}&from=${from}`)
+
+  const encodedQuery = encodeURIComponent(query);
+  fetch(`https://lighthouse.lbry.io/search?s=${encodedQuery}&size=${size}&from=${from}`)
     .then(handleFetchResponse)
     .then(data => {
       const uris = [];
@@ -75,102 +80,31 @@ export const doSearch = (
     });
 };
 
-export const getSearchSuggestions = (value: string) => dispatch => {
+export const getSearchSuggestions = (value: string) => (dispatch: Dispatch, getState: GetState) => {
   const query = value.trim();
 
-  const isPrefix = () =>
-    query === '@' || query === 'lbry:' || query === 'lbry:/' || query === 'lbry://';
-
-  if (!query || isPrefix()) {
-    dispatch({
-      type: ACTIONS.UPDATE_SEARCH_SUGGESTIONS,
-      data: { suggestions: [] },
-    });
-    return;
-  }
-
-  let suggestions = [];
-  try {
-    // If the user is about to manually add the claim id ignore it until they
-    // actually add one. This would hardly ever happen, but then the search
-    // suggestions won't change just from adding a '#' after a uri
-    let uriQuery = query;
-    if (uriQuery.endsWith('#')) {
-      uriQuery = uriQuery.slice(0, -1);
-    }
-
-    const uri = normalizeURI(uriQuery);
-    const { claimName, isChannel } = parseURI(uri);
-
-    suggestions.push(
-      {
-        value: uri,
-        shorthand: isChannel ? claimName.slice(1) : claimName,
-        type: isChannel ? SEARCH_TYPES.CHANNEL : SEARCH_TYPES.FILE,
-      },
-      {
-        value: claimName,
-        type: SEARCH_TYPES.SEARCH,
-      }
-    );
-  } catch (e) {
-    suggestions.push({
-      value: query,
-      type: SEARCH_TYPES.SEARCH,
-    });
-  }
-
-  // Populate the current search query suggestion before fetching results
-  dispatch({
-    type: ACTIONS.UPDATE_SEARCH_SUGGESTIONS,
-    data: { suggestions },
-  });
-
   // strip out any basic stuff for more accurate search results
-  let searchValue = value.replace(/lbry:\/\//g, '').replace(/-/g, ' ');
+  let searchValue = query.replace(/lbry:\/\//g, '').replace(/-/g, ' ');
   if (searchValue.includes('#')) {
     // This should probably be more robust, but I think it's fine for now
     // Remove everything after # to get rid of the claim id
     searchValue = searchValue.substring(0, searchValue.indexOf('#'));
   }
 
+  const suggestions = selectSuggestions(getState());
+  if (suggestions[searchValue]) {
+    return;
+  }
+
   fetch(`https://lighthouse.lbry.io/autocomplete?s=${searchValue}`)
     .then(handleFetchResponse)
     .then(apiSuggestions => {
-      // Suggestion could be a channel, uri, or search term
-      const formattedSuggestions = apiSuggestions
-        .slice(0, 6)
-        .filter(suggestion => suggestion !== query)
-        .map(suggestion => {
-          if (suggestion.includes(' ')) {
-            return {
-              value: suggestion,
-              type: SEARCH_TYPES.SEARCH,
-            };
-          }
-
-          try {
-            const uri = normalizeURI(suggestion);
-            const { claimName, isChannel } = parseURI(uri);
-
-            return {
-              value: uri,
-              shorthand: isChannel ? claimName.slice(1) : claimName,
-              type: isChannel ? SEARCH_TYPES.CHANNEL : SEARCH_TYPES.FILE,
-            };
-          } catch (e) {
-            // search result includes some character that isn't valid in claim names
-            return {
-              value: suggestion,
-              type: SEARCH_TYPES.SEARCH,
-            };
-          }
-        });
-
-      suggestions = suggestions.concat(formattedSuggestions);
       dispatch({
         type: ACTIONS.UPDATE_SEARCH_SUGGESTIONS,
-        data: { suggestions },
+        data: {
+          query: searchValue,
+          suggestions: apiSuggestions,
+        },
       });
     })
     .catch(() => {
@@ -179,7 +113,9 @@ export const getSearchSuggestions = (value: string) => dispatch => {
     });
 };
 
-export const doUpdateSearchQuery = (query: string, shouldSkipSuggestions: ?boolean) => dispatch => {
+export const doUpdateSearchQuery = (query: string, shouldSkipSuggestions: ?boolean) => (
+  dispatch: Dispatch
+) => {
   dispatch({
     type: ACTIONS.UPDATE_SEARCH_QUERY,
     data: { query },
@@ -191,12 +127,12 @@ export const doUpdateSearchQuery = (query: string, shouldSkipSuggestions: ?boole
   }
 };
 
-export const doFocusSearchInput = () => dispatch =>
+export const doFocusSearchInput = () => (dispatch: Dispatch) =>
   dispatch({
     type: ACTIONS.SEARCH_FOCUS,
   });
 
-export const doBlurSearchInput = () => dispatch =>
+export const doBlurSearchInput = () => (dispatch: Dispatch) =>
   dispatch({
     type: ACTIONS.SEARCH_BLUR,
   });
